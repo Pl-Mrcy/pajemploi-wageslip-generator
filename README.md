@@ -62,8 +62,9 @@ Entrez ensuite les jours particuliers du mois : jours de récupération / jours 
     ],
     "sick_days": [
         {
-            "start_date_included: "2023-04-25",
-            "end_date_excluded": "2023-04-28"
+            "start_date_included": "2023-04-25",
+            "end_date_excluded": "2023-04-28",
+            "is_work_accident": "False"
         }
     ]
 }
@@ -71,3 +72,41 @@ Entrez ensuite les jours particuliers du mois : jours de récupération / jours 
 Laissez chaque liste vide le cas échéant.
 
 Vous pouvez ensuite utiliser le fichier `wage-split-generator.ipynb` pour obtenir les détails à remplir sur Pajemploi.
+
+### Suivi des congés payés
+
+Vous pouvez suivre les congés payés de votre auxiliaire parentale en utilisant la dernière partie du script.
+Pour cela, nous utilisons le fichier `data/suivi-conges.json` pour garder automatiquement une trace des congés au fil du temps.
+
+Vous pouvez utiliser les champs disponibles `nbr_jours_conges_payes_initiaux` et `nbr_jours_recuperation_initiaux` si vous commencez à 
+utiliser cet outil en cours de route. Sinon, laissez ces champs à 0.
+
+Le script se charge de remplir le calendrier automatiquement ensuite dans le champs `suivi`.
+
+Si vous tournez plusieurs simulations pour la même année et le même mois, le script écrase automatiquement les données dans ce calendrier avec
+les derniers résultats.
+
+## Détails
+
+### Jours de récupération
+
+Il n’est pas LÉGAL de rémunérer les heures sup 49 et 50 quand elles sont effectuées, on ne peut rémunérer que la majoration de 50%. Les heures elles-mêmes doivent être RÉCUPÉRÉES.
+Il est donc possible de rémunérer la majoration de 50% seulement ou de faire récupérer la totalité des heures 49 et 50 majorés de 50%.
+
+Pour indiquer que vous souhaiter rémunérer la majoration de 50% et ne faire récupérer que les heures 49 et 50 non majorées, indiquez dans la configuration : 
+```
+    "worked_weekly_hours": 50, 
+    "recovered_weekly_hours": 0,
+```
+
+Si au contraire, vous ne souhaitez pas du tout rémunérer les heures 49 et 50 et les faire récupérer de facon majorée, indiquez :
+```
+    "worked_weekly_hours": 50, 
+    "recovered_weekly_hours": 2,
+```
+
+### Accumulation des congés-payés
+
+L'auxiliaire parentale ne cumule pas de congés payés pendant un arrêt maladie, sauf s'il s'agit d'un accident du travail.
+
+Le script calcul combien de congés payés et jours de récupération la nounou a accumulé ce mois-ci.

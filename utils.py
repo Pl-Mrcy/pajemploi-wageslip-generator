@@ -77,7 +77,10 @@ def display_monthly_review(start_date, end_date, vacation_calendar, holidays, si
 
     
 def compute_salary(hours, config):
-    return (hours[0]+hours[1]*1.25+hours[2]*1.5)*config["hourly_salary"]
+    #  il n’est pas LÉGAL de rémunérer les heures sup 49 et 50 quand elles sont effectuées, 
+    #  on ne peut rémunérer que la majoration de 50%. 
+    # Les heures elles-mêmes doivent être RÉCUPÉRÉES.
+    return (hours[0]+hours[1]*1.25+hours[2]*0.5)*config["hourly_salary"]
 
 def compute_meal_allowance(num_full_worked_days, config):
     return num_full_worked_days * config['daily_meal_allowance']
@@ -102,7 +105,24 @@ def compute_paid_and_recovered_weekly_hours(worked_weekly_hours, recovered_weekl
     worked_normal_hours, worked_increased_hours_25prct, worked_increased_hours_50prct = split_working_hours(worked_weekly_hours)
     paid_normal_hours, paid_increased_hours_25prct, paid_increased_hours_50prct = split_working_hours(worked_weekly_hours-recovered_weekly_hours)
 
-    return [paid_normal_hours, paid_increased_hours_25prct, paid_increased_hours_50prct], [worked_normal_hours-paid_normal_hours, worked_increased_hours_25prct-paid_increased_hours_25prct, worked_increased_hours_50prct-paid_increased_hours_50prct]
+    if paid_increased_hours_50prct > 0:
+        recovered_hours_50prct_unincreased = paid_increased_hours_50prct
+    else:
+        recovered_hours_50prct_unincreased = 0
+    recovered_weekly_hours = [worked_normal_hours-paid_normal_hours+recovered_hours_50prct_unincreased, worked_increased_hours_25prct-paid_increased_hours_25prct, worked_increased_hours_50prct-paid_increased_hours_50prct]
+
+    return [paid_normal_hours, paid_increased_hours_25prct, paid_increased_hours_50prct], recovered_weekly_hours
+
+
+def compute_paid_leave_acquired_period(worked_weekly_hours, total_recovered_hours_carried, num_working_sick_days_period, period_weight):
+    # Calcul du nombre de congés payés accumulés
+    sick_leave_weight = num_working_sick_days_period/(5*52/12)
+    contractual_cp_days_per_year = 25
+    contractual_cp_days_per_month = contractual_cp_days_per_year/12
+    cp_aquired_period = (1-sick_leave_weight)*period_weight*contractual_cp_days_per_month
+    recovered_days_acquired_period = period_weight*total_recovered_hours_carried/(worked_weekly_hours/5)
+
+    return cp_aquired_period, recovered_days_acquired_period
 
 def compute_wage_period(period, num_working_days_month, vacation_calendar, holidays, sick_days):
     config = period['config']
@@ -113,7 +133,6 @@ def compute_wage_period(period, num_working_days_month, vacation_calendar, holid
     
     paid_hours_carried = [num_weeks_per_month*h for h in paid_hours]
     total_recovered_hours_carried = num_weeks_per_month*(recovered_hours[0]+recovered_hours[1]*1.25+recovered_hours[2]*1.5)
-    recovered_days_yearly = 12*(total_recovered_hours_carried/(config['worked_weekly_hours']/5))
     
     df_period, num_days_period, num_working_days_period, num_vacation_days_period, num_holidays_period, num_working_sick_days_period, num_full_worked_days_period, num_worked_hours_period = generate_calendar(period['start_date_period'], period['end_date_period'], vacation_calendar, holidays, sick_days)
     
@@ -136,6 +155,9 @@ def compute_wage_period(period, num_working_days_month, vacation_calendar, holid
     meal_allowance_period = compute_meal_allowance(num_full_worked_days_period, config)
     transport_allowance_period = compute_transport_allowance(num_working_days_period, num_working_days_month, config)
     
+    
+    cp_aquired_period, recovered_days_acquired_period = compute_paid_leave_acquired_period(config['worked_weekly_hours'], total_recovered_hours_carried, num_working_sick_days_period, period_weight)
+
     allocation_df = pd.DataFrame(config['allocation_key'])
 
     wage_allocation = allocation_df.copy()
@@ -147,17 +169,21 @@ def compute_wage_period(period, num_working_days_month, vacation_calendar, holid
     wage_allocation['transport_allowance'] = wage_allocation['transport_allowance']*transport_allowance_period
     wage_allocation.set_index('family', inplace=True)
     
-    return wage_allocation
+    return wage_allocation, cp_aquired_period, recovered_days_acquired_period
 
 def compute_period_wages(start_date, end_date, periods, vacation_calendar, holidays, sick_days):
     df_month, num_days_month, num_working_days_month, num_vacation_days_month, num_holidays_month, num_working_sick_days_month, num_full_worked_days_month, num_worked_hours_month = generate_calendar(start_date, end_date, vacation_calendar, holidays, sick_days)
     
     wages = []
+    cp_aquired = []
+    recovered_days_acquired = []
     for period in periods:
-        tmp = compute_wage_period(period=period, num_working_days_month=num_working_days_month, vacation_calendar=vacation_calendar, holidays=holidays, sick_days=sick_days)
-        wages.append(tmp)
+        wage, cp_aquired_period, recovered_days_acquired_period= compute_wage_period(period=period, num_working_days_month=num_working_days_month, vacation_calendar=vacation_calendar, holidays=holidays, sick_days=sick_days)
+        wages.append(wage)
+        cp_aquired.append(cp_aquired_period)
+        recovered_days_acquired.append(recovered_days_acquired_period)
 
-    return wages
+    return wages, cp_aquired, recovered_days_acquired
 
 def compute_total_wages(period_wages):
     return reduce(lambda x, y: x.add(y, fill_value=0), period_wages)
@@ -169,3 +195,8 @@ def display_urssaf_input_values(total_wages_month, family_name):
     display(Markdown(f"Nombre d'heures supplémentaires à 25% : {total_wages_month.loc[family_name]['num_increased_hours_25prct']}"))
     display(Markdown(f"Nombre d'heures supplémentaires à 50% : {total_wages_month.loc[family_name]['num_increased_hours_50prct']}"))
     display(Markdown(f"Frais de transport: {total_wages_month.loc[family_name]['transport_allowance']}€"))
+
+def display_paid_leave_acquired(cp_aquired, recovered_days_acquired):
+    display(Markdown(f"<b>Pdt cette période, l'auxiliaire a acquis :</b>"))
+    display(Markdown(f"{sum(cp_aquired)} jours de congés payés."))
+    display(Markdown(f"{sum(recovered_days_acquired)} jours de récupération."))
