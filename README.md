@@ -110,3 +110,8 @@ Si au contraire, vous ne souhaitez pas du tout rémunérer les heures 49 et 50 e
 L'auxiliaire parentale ne cumule pas de congés payés pendant un arrêt maladie, sauf s'il s'agit d'un accident du travail.
 
 Le script calcul combien de congés payés et jours de récupération la nounou a accumulé ce mois-ci.
+
+## Reste à faire
+**ATTENTION**:
+Le script ne gère pas correctement les congés maladie dûs à un accident de travail. 
+En effet, dans ce cas, les congés payés s'accumulent même sur le temps de congé maladie.
