@@ -1,21 +1,48 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from IPython.display import Markdown, display
 import pandas as pd
 import numpy as np
+import os
+import json
 from functools import reduce
+
+
+def load_config(year, month):
+    # Load the month's config(s) 
+    config_filename = f"data/{year}/{month}/config.json"
+    try:
+        with open(config_filename, 'r') as file:
+            config = json.load(file)
+        return config
+    except:
+        raise "No config file for this period"
+    
+def load_calendars(year, month):
+    # Load the month's paid_leaves, sick_days and holidays
+    calendars_filename = f"data/{year}/{month}/calendars.json"
+    try:
+        with open(calendars_filename, 'r') as file:
+            config = json.load(file)
+        return config['paid_leave'], config['holidays'], config['sick_days']
+    except:
+        print("No config file for this period")
+        return [], [], []
 
 
 def apply_calendar(row, calendar):
     for period in calendar:
-        if (period['start_date_included'] == period['end_date_excluded']) and (pd.Timestamp(period['start_date_included']) == row['date']):
+        start_date_included = datetime.strptime(period['start_date_included'], "%Y-%m-%d").date()
+        end_date_excluded = datetime.strptime(period['end_date_excluded'], "%Y-%m-%d").date()
+        if (start_date_included == end_date_excluded) and (pd.Timestamp(start_date_included) == row['date']):
             return 0.5
-        elif pd.Timestamp(period['start_date_included']) <= row['date'] < pd.Timestamp(period['end_date_excluded']):
+        elif pd.Timestamp(start_date_included) <= row['date'] < pd.Timestamp(end_date_excluded):
             return 1
     return 0
 
 def is_holiday(row, holidays):
     for holiday in holidays:
-        if pd.Timestamp(holiday['date']) == row['date']:
+        holiday_date = datetime.strptime(holiday['date'], "%Y-%m-%d").date()
+        if pd.Timestamp(holiday_date) == row['date']:
             return 1
     return 0
 
@@ -46,11 +73,11 @@ def display_monthly_review(start_date, end_date, vacation_calendar, holidays, si
     display(Markdown(f"Le mois a compté {num_full_worked_days_month} jours complètement travaillées"))
     display(Markdown(f"Le mois a compté {num_worked_hours_month} heures travaillées"))
 
+    return df_month
+
     
-def compute_salary(num_normal_hours, num_increased_hours, config):
-    normal_hours_wage = num_normal_hours*config["hourly_salary"]
-    increased_hours_wage = num_increased_hours*(config["hourly_salary"]*1.25)
-    return normal_hours_wage+increased_hours_wage
+def compute_salary(hours, config):
+    return (hours[0]+hours[1]*1.25+hours[2]*1.5)*config["hourly_salary"]
 
 def compute_meal_allowance(num_full_worked_days, config):
     return num_full_worked_days * config['daily_meal_allowance']
@@ -60,14 +87,33 @@ def compute_transport_allowance(num_working_days_period, num_working_days_month,
     period_weight = num_working_days_period / num_working_days_month
     return transport_cost*period_weight
 
+def split_working_hours(hours):
+    if hours > 50:
+        print("Il n'est pas permis de faire travailler votre assitante plus que 50 heures par semaine.")
+        raise
+    else:
+        normal_hours = min(40, hours)
+        increased_25prct_hours = min(8, max(0, hours - 40))
+        increased_50prct_hours = max(0, hours - 48)
+        return normal_hours, increased_25prct_hours, increased_50prct_hours
+
+def compute_paid_and_recovered_weekly_hours(worked_weekly_hours, recovered_weekly_hours):
+
+    worked_normal_hours, worked_increased_hours_25prct, worked_increased_hours_50prct = split_working_hours(worked_weekly_hours)
+    paid_normal_hours, paid_increased_hours_25prct, paid_increased_hours_50prct = split_working_hours(worked_weekly_hours-recovered_weekly_hours)
+
+    return [paid_normal_hours, paid_increased_hours_25prct, paid_increased_hours_50prct], [worked_normal_hours-paid_normal_hours, worked_increased_hours_25prct-paid_increased_hours_25prct, worked_increased_hours_50prct-paid_increased_hours_50prct]
+
 def compute_wage_period(period, num_working_days_month, vacation_calendar, holidays, sick_days):
     config = period['config']
     
+    paid_hours, recovered_hours = compute_paid_and_recovered_weekly_hours(config['worked_weekly_hours'], config['recovered_weekly_hours'])
+
     num_weeks_per_month = 52/12
-    num_normal_hours = num_weeks_per_month*config['normal_weekly_hours']
-    num_increased_hours = num_weeks_per_month*config['increased_weekly_hours']
-    num_recovered_hours = num_weeks_per_month*config['recovered_weekly_hours']*config['recovery_coefficient']
-    num_recovered_days_yearly = 12*(num_recovered_hours/config['num_daily_hours'])
+    
+    paid_hours_carried = [num_weeks_per_month*h for h in paid_hours]
+    total_recovered_hours_carried = num_weeks_per_month*(recovered_hours[0]+recovered_hours[1]*1.25+recovered_hours[2]*1.5)
+    recovered_days_yearly = 12*(total_recovered_hours_carried/(config['worked_weekly_hours']/5))
     
     df_period, num_days_period, num_working_days_period, num_vacation_days_period, num_holidays_period, num_working_sick_days_period, num_full_worked_days_period, num_worked_hours_period = generate_calendar(period['start_date_period'], period['end_date_period'], vacation_calendar, holidays, sick_days)
     
@@ -78,25 +124,25 @@ def compute_wage_period(period, num_working_days_month, vacation_calendar, holid
     # despite the number of working days varying, we can´t make a simple withdrawal of the sick hours
     # We compte the number of the number of weeks she was on sick leave and allocate those bits of weeks
     # on normal hours and increased hours.
-    num_working_sick_hours_period_averaged = (num_working_sick_days_period/5)*(config['normal_weekly_hours']+config['increased_weekly_hours'])
-    num_sick_normal_hours_period_averaged = num_working_sick_hours_period_averaged*(num_normal_hours/(num_normal_hours+num_increased_hours))
-    num_sick_increased_hours_period_averaged = num_working_sick_hours_period_averaged*(num_increased_hours/(num_normal_hours+num_increased_hours))
+    total_working_sick_hours_period_carried = (num_working_sick_days_period/5)*(sum(paid_hours))
+    sick_hours_carried = [total_working_sick_hours_period_carried*h/sum(paid_hours_carried) for h in paid_hours_carried]
     
-    num_effective_normal_hours_period = num_normal_hours-num_sick_normal_hours_period_averaged
-    num_effective_increased_hours_period = num_increased_hours-num_sick_increased_hours_period_averaged
+    num_effective_hours_period = [paid_hours_carried[i]*period_weight-sick_hours_carried[i] for i in range(len(paid_hours_carried))]
     
     salary_period = compute_salary(
-        num_normal_hours=num_effective_normal_hours_period*period_weight,
-        num_increased_hours=num_effective_increased_hours_period*period_weight,
+        hours=num_effective_hours_period,
         config=config
     )
     meal_allowance_period = compute_meal_allowance(num_full_worked_days_period, config)
     transport_allowance_period = compute_transport_allowance(num_working_days_period, num_working_days_month, config)
     
-    wage_allocation = config['allocation_key'].copy()
+    allocation_df = pd.DataFrame(config['allocation_key'])
+
+    wage_allocation = allocation_df.copy()
     wage_allocation['salary'] = wage_allocation['salary']*salary_period
-    wage_allocation['num_normal_hours'] = config['allocation_key']['salary']*num_effective_normal_hours_period*period_weight
-    wage_allocation['num_increased_hours'] = config['allocation_key']['salary']*num_effective_increased_hours_period*period_weight
+    wage_allocation['num_normal_hours'] = allocation_df['salary']*num_effective_hours_period[0]
+    wage_allocation['num_increased_hours_25prct'] = allocation_df['salary']*num_effective_hours_period[1]
+    wage_allocation['num_increased_hours_50prct'] = allocation_df['salary']*num_effective_hours_period[2]
     wage_allocation['meal_allowance'] = wage_allocation['meal_allowance']*meal_allowance_period
     wage_allocation['transport_allowance'] = wage_allocation['transport_allowance']*transport_allowance_period
     wage_allocation.set_index('family', inplace=True)
@@ -117,8 +163,9 @@ def compute_total_wages(period_wages):
     return reduce(lambda x, y: x.add(y, fill_value=0), period_wages)
     
 def display_urssaf_input_values(total_wages_month, family_name):
-    display(Markdown(f"<b>À entrer dans Pajemploi :</b>"))
+    display(Markdown(f"<b>À entrer dans Pajemploi pour votre famille :</b>"))
     display(Markdown(f"Salaire net {family_name} : {total_wages_month.loc[family_name]['salary'] + total_wages_month.loc[family_name]['meal_allowance']}€"))
     display(Markdown(f"Nombre d'heures effective : {total_wages_month.loc[family_name]['num_normal_hours']}"))
-    display(Markdown(f"Nombre d'heures supplémentaires à 25% : {total_wages_month.loc[family_name]['num_increased_hours']}"))
+    display(Markdown(f"Nombre d'heures supplémentaires à 25% : {total_wages_month.loc[family_name]['num_increased_hours_25prct']}"))
+    display(Markdown(f"Nombre d'heures supplémentaires à 50% : {total_wages_month.loc[family_name]['num_increased_hours_50prct']}"))
     display(Markdown(f"Frais de transport: {total_wages_month.loc[family_name]['transport_allowance']}€"))

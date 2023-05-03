@@ -1,0 +1,16 @@
+{
+    "paid_leave": [
+        {
+            "start_date_included": "2023-04-14",
+            "end_date_excluded":"2023-04-15"
+        }
+    ],
+    "holidays": [
+        {
+            "date": "2023-04-10",
+            "name": "Pâques"
+        }
+    ],
+    "sick_days": [
+    ]
+}
