@@ -50,7 +50,7 @@ def save_to_suivi(suivi, updated_calendar):
     }
     config_filename = f"data/suivi-conges.json"
     with open(config_filename, 'w') as file:
-        json.dump(data, file)
+        json.dump(data, file, indent=2)
     return data
 
 
