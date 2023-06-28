@@ -1,6 +1,17 @@
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Pl-Mrcy/pajemploi-wageslip-generator/HEAD?labpath=wage-slip-generator-online.ipynb)
+
 # Aide à la paye d'une auxiliaire parentale ([Pajemploi](https://www.pajemploi.urssaf.fr/))
 
 Ce projet vous aide à remplir vos déclarations Pajemploi pour votre auxiliaire parentale et à faire le suivi des congés payés et des jours de récupération dans le cadre d'une garde partagée ou non.
+
+## Utiliser ce projet
+
+Si vous pouvez faire tourner un Jupyter Notebook sur votre machine, vous pouvez cloner ce projet et utiliser le notebook `wage-slip-generator.ipynb`.
+
+Dans le cas contraire, vous pouvez utiliser le notebook `wage-slip-generator-online.ipynb` directement depuis votre navigateur [ici](https://notebooks.gesis.org/binder/jupyter/user/pl-mrcy-pajempl-eslip-generator-s5u20aof/doc/tree/wage-slip-generator-online.ipynb).
+
+Cependant, il n'est pas possible de garder un historique des congés payés dans ce cas et vous ne bénéficiez pas des fonctionnalités associées (suivi du nombre de congés payés et jours de récupération restants).
+
 
 ## Contexte
 
