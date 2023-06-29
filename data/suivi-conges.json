@@ -1,5 +1,36 @@
 {
-    "nbr_jours_conges_payes_initiaux": 0,
-    "nbr_jours_recuperation_initiaux": 0, 
-    "suivi": []
+  "nbr_jours_conges_payes_initiaux": 4.58,
+  "nbr_jours_recuperation_initiaux": 3.6,
+  "suivi": [
+    {
+      "year": 2023,
+      "month": "avril",
+      "nbr_cp_poses": 0.0,
+      "nbr_jours_recuperation_poses": 1.0,
+      "nbr_cp_acquis": 2.0833333333333335,
+      "nbr_jours_recuperation_acquis": 1.3,
+      "salaire_net": 0,
+      "frais_de_transport": 0
+    },
+    {
+      "year": 2023,
+      "month": "mai",
+      "nbr_cp_poses": 0.0,
+      "nbr_jours_recuperation_poses": 0.0,
+      "nbr_cp_acquis": 2.0833333333333335,
+      "nbr_jours_recuperation_acquis": 1.3,
+      "salaire_net": 0,
+      "frais_de_transport": 0
+    },
+    {
+      "year": 2023,
+      "month": "juin",
+      "nbr_cp_poses": 0.0,
+      "nbr_jours_recuperation_poses": 0.0,
+      "nbr_cp_acquis": 2.0833333333333335,
+      "nbr_jours_recuperation_acquis": 0.8666666666666666,
+      "salaire_net": 0,
+      "frais_de_transport": 0
+    }
+  ]
 }

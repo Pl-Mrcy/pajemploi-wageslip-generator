@@ -116,6 +116,8 @@ def compute_paid_and_recovered_weekly_hours(worked_weekly_hours, recovered_weekl
 
 def compute_paid_leave_acquired_period(worked_weekly_hours, total_recovered_hours_carried, num_working_sick_days_period, period_weight):
     # Calcul du nombre de congés payés accumulés
+    # L'auxiliaire n'accumule pas de congés payés pendant un congé maladie.
+    # En revanche, les jours fériés et les congés payés comptent pour le calcul des congés payés suivants.
     sick_leave_weight = num_working_sick_days_period/(5*52/12)
     contractual_cp_days_per_year = 25
     contractual_cp_days_per_month = contractual_cp_days_per_year/12
@@ -197,6 +199,6 @@ def display_urssaf_input_values(total_wages_month, family_name):
     display(Markdown(f"Frais de transport: {total_wages_month.loc[family_name]['transport_allowance']}€"))
 
 def display_paid_leave_acquired(cp_aquired, recovered_days_acquired):
-    display(Markdown(f"<b>Pdt cette période, l'auxiliaire a acquis :</b>"))
+    display(Markdown(f"<b>Pendant cette période, l'auxiliaire a acquis :</b>"))
     display(Markdown(f"{sum(cp_aquired)} jours de congés payés."))
     display(Markdown(f"{sum(recovered_days_acquired)} jours de récupération."))
